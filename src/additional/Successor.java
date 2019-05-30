@@ -4,9 +4,12 @@ import java.util.ArrayList;
 
 public class Successor
 {
+
     private int distance;
     private Direction cameFromDirection = new Direction(0, 0);
     private Successor cameFrom = null;
+
+    private ArrayList<Successor> prunedNeighbors = new ArrayList<>();
 
     private static char[][] map;
     private int X;
@@ -20,6 +23,12 @@ public class Successor
         this.X = X;
         this.Y = Y;
         distance = 0;
+    }
+
+    public static Successor makeStart(int i, int j) {
+        Successor successor = new Successor(i, j);
+        successor.prunedNeighbors = successor.getNeighbors();
+        return successor;
     }
 
     private Successor(int X, int Y, int distance) {
@@ -72,18 +81,28 @@ public class Successor
 
     public boolean prevPointHadVerticalNeighbors(Direction direction)
     {
-        Successor prevPoint = move(direction.opposite());
+        Successor prevPoint = Successor.move(this, direction.opposite());
         Successor[] near = new Successor[2];
 
         if(prevPoint.getPointType() != '#')
         {
-            near[0] = prevPoint.move(new Direction(1, 0));
-            near[1] = prevPoint.move(new Direction(-1, 0));
-
-            for(int i = 0; i < 2; i++)
-                if (near[i].getPointType() == '#' && near[i].move(direction).getPointType() != '#') {
-                    return true;
+            near[0] = Successor.move(prevPoint, Direction.DOWN);
+            near[1] = Successor.move(prevPoint, Direction.UP);
+            Successor neighbor;
+            boolean had = false;
+            for(int i = 0; i < 2; i++) {
+                neighbor = Successor.move(near[i], direction);
+                if (near[i].getPointType() == '#' && neighbor.getPointType() != '#') {
+                    prunedNeighbors.add(neighbor);
+                    had = true;
                 }
+            }
+            if(had) {
+                Successor nextNeigh = Successor.move(this, direction);
+                if(nextNeigh.getPointType() != '#')
+                    prunedNeighbors.add(Successor.move(this, direction));
+            }
+            return had;
         }
         return false;
     }
@@ -92,28 +111,38 @@ public class Successor
         return new Direction(this, new_node);
     }
 
-    public Successor move(Direction vector) {
-        int x = this.X + vector.getX();
-        int y = this.Y + vector.getY();
-        return new Successor(x, y, distance + 1);
+    public static Successor move(Successor successor, Direction vector) {
+        int x = successor.X + vector.getX();
+        int y = successor.Y + vector.getY();
+        return new Successor(x, y, successor.distance + 1);
     }
 
-    public ArrayList<Successor> getNeighbors()
-    {
+    public void moveThis(Direction vector) {
+        X += vector.getX();
+        Y += vector.getY();
+        distance += 1;
+    }
+
+    private ArrayList<Successor> getNeighbors() {
         ArrayList<Successor> neighs = new ArrayList<>();
-        Successor[] possibleNeighs = new Successor[4];
         int X = getX();
         int Y = getY();
-        possibleNeighs[0] = new Successor(X, Y-1);
-        possibleNeighs[1] = new Successor(X, Y+1);
-        possibleNeighs[2] = new Successor(X-1, Y);
-        possibleNeighs[3] = new Successor(X+1, Y);
-        for(Successor neigh: possibleNeighs)
-            if(neigh.getPointType() != '#' && !neigh.equals(move(cameFromDirection))) {
-                neigh.distance = distance + 1;
-                neighs.add(neigh);
-            }
+        neighs.add(new Successor(X, Y-1));
+        neighs.add(new Successor(X, Y+1));
+        neighs.add(new Successor(X-1, Y));
+        neighs.add(new Successor(X+1, Y));
         return neighs;
+    }
+
+    public ArrayList<Successor> getPrunedNeighbors()
+    {
+        return prunedNeighbors;
+    }
+
+    public void addNeighbor(Direction direction) {
+        Successor neighbor = Successor.move(this, direction);
+        if(neighbor.getPointType() != '#')
+            prunedNeighbors.add(neighbor);
     }
 
     @Override
@@ -127,5 +156,10 @@ public class Successor
         if (o == null || getClass() != o.getClass()) return false;
         return getX() == ((Successor) o).getX() && getY() == ((Successor) o).getY();
 
+    }
+
+    @Override
+    public String toString() {
+        return "" + X + " " + Y;
     }
 }

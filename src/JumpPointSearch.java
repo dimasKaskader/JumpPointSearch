@@ -20,7 +20,7 @@ public class JumpPointSearch implements Navigator {
             for(int j = 0; j <= height; j++)
             {
                 if(outputMap[i][j] == '@')
-                    start = new Successor(i, j);
+                    start = Successor.makeStart(i, j);
                 else if(outputMap[i][j] == 'X')
                     goal = new Successor(i, j);
             }
@@ -62,11 +62,9 @@ public class JumpPointSearch implements Navigator {
                 if(existingSuccessorId < 0) {
                     frontier.add(successor);
                     jumpPoints.add(successor);
-                    successor.setParent(current);
                 }
                 else if (jumpPoints.get(existingSuccessorId).getDistance() > successor.getDistance()) {
                     jumpPoints.set(existingSuccessorId, successor);
-                    successor.setParent(current);
                 }
             }
             if (frontier.size() == 0)
@@ -74,6 +72,14 @@ public class JumpPointSearch implements Navigator {
         }
 
         buildPath();
+
+        /*for(Successor jump: jumpPoints) {
+            outputMap[jump.getX()][jump.getY()] = 'J';
+            for(Successor neigh: jump.getPrunedNeighbors()) {
+                outputMap[neigh.getX()][neigh.getY()] = 'n';
+            }
+        }*/
+
         return outputMap;
     }
 
@@ -107,48 +113,80 @@ public class JumpPointSearch implements Navigator {
         }
     }
 
-    private ArrayList<Successor> identifySuccessors(Successor currentNode, Successor goal)
-    {
+    private ArrayList<Successor> identifySuccessors(Successor currentNode, Successor goal) {
         ArrayList<Successor> successors = new ArrayList<>();
-        ArrayList<Successor> neighbors = currentNode.getNeighbors();
-        for(Successor neighbor: neighbors)
-        {
+        ArrayList<Successor> neighbors = currentNode.getPrunedNeighbors();
+
+        for (Successor neighbor : neighbors) {
             Direction directionToNeigh = currentNode.computeDirectionTo(neighbor);
-            Successor newSuccessor = jump(neighbor, directionToNeigh, goal);
-            if(newSuccessor != null) {
-                Direction parentDirection = currentNode.computeDirectionTo(newSuccessor).opposite();
-                newSuccessor.setParentDirection(parentDirection);
-                successors.add(newSuccessor);
+            Successor[] newSuccessors = null;
+
+            if (directionToNeigh.isVertical())
+                newSuccessors = verticalJump(neighbor, directionToNeigh, goal);
+            else {
+                Successor newSuccessor = horizontalJump(neighbor, directionToNeigh, goal);
+                if (newSuccessor != null)
+                    newSuccessors = new Successor[]{newSuccessor};
+            }
+
+            if (newSuccessors != null) {
+                Direction parentDirection;
+                Successor parent = currentNode;
+                for(Successor successor: newSuccessors) {
+                    parentDirection = successor.computeDirectionTo(currentNode);
+                    successor.setParentDirection(parentDirection);
+                    successor.setParent(parent);
+                    successors.add(successor);
+                    parent = successor;
+                }
             }
         }
         return successors;
     }
 
-    private Successor jump(Successor initNode, Direction direction, Successor goal)
+    private Successor horizontalJump(Successor initNode, Direction direction, Successor goal)
     {
         if (initNode.equals(goal))
             return initNode;
 
-        if (direction.getY() != 0) {
-            if (initNode.prevPointHadVerticalNeighbors(direction))
-                return initNode;
-        }
-        else if(direction.getX() != 0){
-            Successor firstToTheRight = initNode.move(Direction.RIGHT);
-            if (firstToTheRight.getPointType() != '#')
-                if (jump(firstToTheRight, Direction.RIGHT, goal) != null)
-                    return initNode;
+        if (initNode.prevPointHadVerticalNeighbors(direction))
+            return initNode;
 
-            Successor firstToTheLeft = initNode.move(Direction.LEFT);
-            if (firstToTheLeft.getPointType() != '#')
-                if (jump(firstToTheLeft, Direction.LEFT, goal) != null)
-                    return initNode;
-        }
-
-        Successor newPoint = initNode.move(direction);
-        if (newPoint.getPointType() == '#')
+        initNode.moveThis(direction);
+        if (initNode.getPointType() == '#')
             return null;
 
-        return jump(newPoint, direction, goal);
+        return horizontalJump(initNode, direction, goal);
+    }
+
+    private Successor[] verticalJump(Successor initNode, Direction direction, Successor goal)
+    {
+        if (initNode.equals(goal))
+            return new Successor[] {initNode};
+
+        Successor firstToTheRight = Successor.move(initNode, Direction.RIGHT);
+        if (firstToTheRight.getPointType() != '#') {
+            Successor rightJump = horizontalJump(firstToTheRight, Direction.RIGHT, goal);
+            if (rightJump != null) {
+                initNode.addNeighbor(direction);
+                initNode.addNeighbor(Direction.LEFT);
+                return new Successor[]{initNode, rightJump};
+            }
+        }
+
+        Successor firstToTheLeft = Successor.move(initNode, Direction.LEFT);
+        if (firstToTheLeft.getPointType() != '#') {
+            Successor leftJump = horizontalJump(firstToTheLeft, Direction.LEFT, goal);
+            if (leftJump != null) {
+                initNode.addNeighbor(direction);
+                return new Successor[]{initNode, leftJump};
+            }
+        }
+
+        initNode.moveThis(direction);
+        if (initNode.getPointType() == '#')
+            return null;
+
+        return verticalJump(initNode, direction, goal);
     }
 }

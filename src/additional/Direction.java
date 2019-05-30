@@ -7,6 +7,8 @@ public class Direction
 
     public static Direction RIGHT = new Direction(0, 1);
     public static Direction LEFT = new Direction(0, -1);
+    public static Direction DOWN = new Direction(1, 0);
+    public static Direction UP = new Direction(-1, 0);
 
     Direction(int X, int Y){
         this.X = X;
@@ -31,6 +33,14 @@ public class Direction
 
     public Direction opposite() {
         return new Direction(-X, -Y);
+    }
+
+    public boolean isHorizontal() {
+        return getY() != 0;
+    }
+
+    public boolean isVertical() {
+        return getX() != 0;
     }
 
     public int getX() {
